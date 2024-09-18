@@ -13,11 +13,11 @@ st.caption("Validate and manage the matched data using the DATA_VALIDATION view"
 # Connect to Snowflake using the connector
 def init_connection():
     return snowflake.connector.connect(
-        user=st.secrets["AGEOELENA"],
-        password=st.secrets["Cal_Verde_01."],
-        account=st.secrets["jh90980.eu-central-2"],
-        warehouse=st.secrets["COMPUTE_WH"],
-        database=st.secrets["UTIL_DB"]
+        user=st.secrets["SNOWFLAKE_USER"],  # Use the correct keys from Streamlit secrets
+        password=st.secrets["SNOWFLAKE_PASSWORD"],  # Use the correct keys from Streamlit secrets
+        account=st.secrets["SNOWFLAKE_ACCOUNT"],  # Use the correct keys from Streamlit secrets
+        warehouse=st.secrets["SNOWFLAKE_WAREHOUSE"],  # Use the correct keys from Streamlit secrets
+        database=st.secrets["SNOWFLAKE_DATABASE"]  # Use the correct keys from Streamlit secrets
     )
 
 # Initialize the connection
