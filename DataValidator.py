@@ -1,13 +1,29 @@
 import streamlit as st
 import pandas as pd
-from snowflake.snowpark.context import get_active_session
+import snowflake.connector
 from datetime import datetime
 
 # Page layout
 st.set_page_config(layout="wide")
 
-# Get the current session
-session = get_active_session()
+# Snowflake connection details
+def create_snowflake_connection():
+    return snowflake.connector.connect(
+        user=st.secrets["snowflake"]["user"],
+        password=st.secrets["snowflake"]["password"],
+        account=st.secrets["snowflake"]["account"],
+        warehouse=st.secrets["snowflake"]["warehouse"],
+        database=st.secrets["snowflake"]["database"],
+        schema=st.secrets["snowflake"]["schema"]
+    )
+
+def test_connection():
+    conn = create_snowflake_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT CURRENT_USER()")
+    result = cursor.fetchone()
+    st.write(f"Connected as: {result[0]}")
+    conn.close()
 
 # Title and introduction message
 st.title("Data Validator")
@@ -15,30 +31,36 @@ st.caption("Validate and manage the matched data using the DATA_VALIDATION view"
 
 # Function to fetch data from Snowflake
 def fetch_data():
-    df = session.table('UTIL_DB.PUBLIC.DATA_VALIDATION').to_pandas()
+    conn = create_snowflake_connection()
+    query = "SELECT * FROM DATA_VALIDATION"
+    df = pd.read_sql(query, conn)
+    conn.close()
+    
     # Ensure boolean columns are correctly typed and fill null values
     if 'ACCEPT_REJECT' in df.columns:
         df['ACCEPT_REJECT'] = df['ACCEPT_REJECT'].fillna(False).astype(bool)
     return df
 
-# Function to update the Snowflake table
-def update_table(dataframe):
-    snowflake_df = session.create_dataframe(dataframe)
-    snowflake_df.write.mode("overwrite").save_as_table('UTIL_DB.PUBLIC.DATA_VALIDATION')
-
-# Function to update the 'ACCEPTED' status in the Snowflake table
+# Function to update the 'ACCEPT_REJECT' status in Snowflake table
 def update_accepted_status(dataframe):
+    conn = create_snowflake_connection()
+    cursor = conn.cursor()
+
     for index, row in dataframe.iterrows():
         # Check for NaN values in the ID and ACCEPT_REJECT columns
         if pd.notna(row['ID']) and pd.notna(row['ACCEPT_REJECT']):
             query = f"""
-            UPDATE UTIL_DB.PUBLIC.DATA_VALIDATION
+            UPDATE DATA_VALIDATION
             SET ACCEPT_REJECT = {int(row['ACCEPT_REJECT'])}
             WHERE ID = {int(row['ID'])}
             """
-            session.sql(query).collect()
+            cursor.execute(query)
         else:
             st.warning(f"Row with ID {row['ID']} or ACCEPT_REJECT has NaN values and will be skipped.")
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 # Fetch the data
 df = fetch_data()
