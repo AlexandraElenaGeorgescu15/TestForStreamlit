@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import snowflake.connector
 from st_aggrid import AgGrid, GridOptionsBuilder
+from datetime import datetime
 
 # Page layout
 st.set_page_config(layout="wide")
@@ -33,11 +34,14 @@ def fetch_data():
 def update_table(dataframe):
     conn = create_snowflake_connection()
     cursor = conn.cursor()
+    current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     for index, row in dataframe.iterrows():
         query = f"""
         UPDATE UTIL_DB.PUBLIC.DATA_VALIDATION
-        SET ACCEPT_REJECT = '{row['ACCEPT_REJECT']}'
+        SET ACCEPT_REJECT = '{row['ACCEPT_REJECT']}',
+            USER_COMMENT = '{row['USER_COMMENT']}',
+            COMMENT_TIMESTAMP = '{current_timestamp}'
         WHERE ID = {row['ID']}
         """
         cursor.execute(query)
@@ -49,25 +53,29 @@ def update_table(dataframe):
 # Fetch data from Snowflake
 df = fetch_data()
 
+# Hide the 'PRODUCT' column from the displayed table
+df_display = df.drop(columns=['PRODUCT'])
+
 # Dropdown options for ACCEPT_REJECT column
 options = ['Pending', 'Approved', 'Rejected']
 
 # Configure the table with AgGrid
-gb = GridOptionsBuilder.from_dataframe(df)
+gb = GridOptionsBuilder.from_dataframe(df_display)
 gb.configure_column(
     'ACCEPT_REJECT',
     editable=True,
     cellEditor='agSelectCellEditor',  # Dropdown for ACCEPT_REJECT
     cellEditorParams={'values': options}  # Specify dropdown options
 )
+gb.configure_column('USER_COMMENT', editable=True)  # Allow editing for USER_COMMENT
 
 # Build the grid options
 grid_options = gb.build()
 
-# Display the table with dropdown in ACCEPT_REJECT column
-st.header('Editable Table with Dropdown for ACCEPT_REJECT')
+# Display the table with dropdown in ACCEPT_REJECT and editable USER_COMMENT column
+st.header('Editable Table with Dropdown for ACCEPT_REJECT and Editable USER_COMMENT')
 grid_response = AgGrid(
-    df,
+    df_display,
     gridOptions=grid_options,
     update_mode='MODEL_CHANGED',
     editable=True
@@ -79,6 +87,8 @@ updated_df = grid_response['data']
 # Submit button to save changes back to Snowflake
 if st.button('Submit Changes'):
     with st.spinner("Updating Snowflake table..."):
-        update_table(updated_df)  # Save the updated data to Snowflake
+        # Merge the PRODUCT column back into the updated dataframe before updating the database
+        updated_df_with_product = pd.merge(updated_df, df[['ID', 'PRODUCT']], on='ID')
+        update_table(updated_df_with_product)  # Save the updated data to Snowflake
         st.success("Table updated successfully!")
-        st.dataframe(fetch_data(), use_container_width=True)  # Refresh the table display
+        st.dataframe(fetch_data().drop(columns=['PRODUCT']), use_container_width=True)  # Refresh the table display, hiding PRODUCT column
