@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import snowflake.connector
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from st_aggrid import AgGrid, GridOptionsBuilder
 from datetime import datetime
 
 # Page layout
@@ -77,9 +77,6 @@ gb.configure_column(
 # Configure column 'USER_COMMENT' with blue style
 gb.configure_column('USER_COMMENT', editable=True, cellStyle=blue_style)  # Allow editing for USER_COMMENT and set style
 
-# Enable clicking on rows
-gb.configure_grid_options(enableCellTextSelection=True)
-
 # Build the grid options
 grid_options = gb.build()
 
@@ -88,27 +85,18 @@ st.header('Editable Table with Dropdown for ACCEPT_REJECT and Editable USER_COMM
 grid_response = AgGrid(
     df_display,
     gridOptions=grid_options,
-    update_mode=GridUpdateMode.SELECTION_CHANGED,
+    update_mode='MODEL_CHANGED',
     editable=True
 )
 
-# Check if any row is selected
-selected_row = grid_response['selected_rows']
-
-# If a row is selected, display the details of the row as a "popup"
-if selected_row:
-    st.markdown("### Selected Row Details")
-    selected_row_data = selected_row[0]  # Get the data of the selected row
-
-    # Display all the data from the selected row
-    for key, value in selected_row_data.items():
-        st.write(f"**{key}:** {value}")
+# Get the updated dataframe after user interaction
+updated_df = grid_response['data']
 
 # Submit button to save changes back to Snowflake
 if st.button('Submit Changes'):
     with st.spinner("Updating Snowflake table..."):
         # Merge the PRODUCT column back into the updated dataframe before updating the database
-        updated_df_with_product = pd.merge(grid_response['data'], df[['ID', 'PRODUCT']], on='ID')
+        updated_df_with_product = pd.merge(updated_df, df[['ID', 'PRODUCT']], on='ID')
         update_table(updated_df_with_product)  # Save the updated data to Snowflake
         st.success("Table updated successfully!")
         st.dataframe(fetch_data().drop(columns=['PRODUCT']), use_container_width=True)  # Refresh the table display, hiding PRODUCT column
