@@ -61,19 +61,27 @@ options = ['Pending', 'Approved', 'Rejected']
 
 # Configure the table with AgGrid
 gb = GridOptionsBuilder.from_dataframe(df_display)
+
+# Add blue background color for ACCEPT_REJECT and USER_COMMENT columns
+blue_style = {'background-color': 'lightblue'}
+
+# Configure column 'ACCEPT_REJECT' with blue style
 gb.configure_column(
     'ACCEPT_REJECT',
     editable=True,
-    cellEditor='agSelectCellEditor',  # Dropdown for ACCEPT_REJECT
-    cellEditorParams={'values': options}  # Specify dropdown options
+    cellEditor='agSelectCellEditor',
+    cellEditorParams={'values': options},  # Specify dropdown options
+    cellStyle=blue_style  # Add blue color to the column
 )
-gb.configure_column('USER_COMMENT', editable=True)  # Allow editing for USER_COMMENT
+
+# Configure column 'USER_COMMENT' with blue style
+gb.configure_column('USER_COMMENT', editable=True, cellStyle=blue_style)  # Allow editing for USER_COMMENT and set style
 
 # Build the grid options
 grid_options = gb.build()
 
 # Display the table with dropdown in ACCEPT_REJECT and editable USER_COMMENT column
-st.header('Editable Table with Dropdown for ACCEPT_REJECT and Editable USER_COMMENT')
+st.header('Editable Table with Dropdown for ACCEPT_REJECT and Editable USER_COMMENT (Blue Styled)')
 grid_response = AgGrid(
     df_display,
     gridOptions=grid_options,
